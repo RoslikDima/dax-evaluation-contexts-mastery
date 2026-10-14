@@ -1,0 +1,44 @@
+/*
+Бизнес-кейс #15: Анализ повторных покупок (New vs Existing Customers)
+Следующий классический запрос из продуктовой аналитики и CRM.
+
+Запрос бизнеса (Руководитель отдела удержания клиентов / Retention):
+
+«Нам нужно понять качество базы клиентов в 2008 году ("CY 2008").
+По каждому месяцу 2008 года ('Date'[Calendar Year Month]):
+
+Выведи общее количество активных клиентов в этом месяце ([Monthly Active Customers]).
+
+Выведи количество "Новых клиентов" ([New Customers]): это клиенты, которые совершили покупку в текущем месяце, но никогда до этого месяца не покупали в нашем магазине (за всю доступную историю до начала текущего месяца).
+
+Подсказка к модели: для подсчета уникальных покупателей используй поле клиента из факта продаж Sales[CustomerKey].»*
+*/
+
+DEFINE
+    MEASURE 'Sales'[Total Sales] =
+        SUMX ( 'Sales', Sales[Quantity] * Sales[Net Price] )
+    MEASURE 'Sales'[New Customers] =
+        VAR FirstDateCurrentMonth =
+            MIN ( 'Date'[Date] )
+        VAR CurrentMonthCustomers =
+            CALCULATETABLE ( VALUES ( 'Customer'[Customer Code] ), 'Sales' )
+        VAR PastCustomers =
+            CALCULATETABLE (
+                VALUES ( 'Customer'[Customer Code] ),
+                'Sales',
+                'Date'[Date] < FirstDateCurrentMonth,
+                REMOVEFILTERS ( 'Date' )
+            )
+        RETURN
+            COUNTROWS ( EXCEPT ( CurrentMonthCustomers, PastCustomers ) )
+    MEASURE 'Sales'[Monthly Active Customers] =
+        CALCULATE ( DISTINCTCOUNT ( 'Customer'[Customer Code] ), 'Sales' )
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    'Date'[Calendar Year Month],
+    TREATAS ( { "CY 2008" }, 'Date'[Calendar Year] ),
+    "Total Sales", [Total Sales],
+    "Monthly Active Customers", [Monthly Active Customers],
+    "New Customers", [New Customers]
+)

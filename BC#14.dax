@@ -1,0 +1,36 @@
+/*
+Бизнес-кейс #14: Кумулятивная выручка Парето (Кривая 80/20 по брендам)
+Запрос бизнеса (Директор по закупкам):
+
+«Нам нужно провести ABC/Парето-анализ наших брендов ('Product'[Brand]) за 2008 год ("CY 2008").
+Построй отчет со столбцами:
+
+Бренд ('Product'[Brand]).
+
+Выручка бренда ([Total Sales]).
+
+Накопленная выручка брендов нарастающим итогом — от самого доходного бренда к наименее доходному ([Cumulative Sales]): в первой строке выручка топ-1 бренда, во второй строке сумма топ-1 + топ-2, и так далее до общей суммы продаж в конце.
+
+Итоговая таблица должна быть отсортирована по убыванию выручки брендов».
+*/
+DEFINE
+    MEASURE 'Sales'[Total Sales] =
+        SUMX ( 'Sales', Sales[Quantity] * Sales[Net Price] )
+    MEASURE 'Sales'[Cumulative Sales] =
+        VAR CurrentSales = [Total Sales]
+        VAR _Result =
+            CALCULATE (
+                [Total Sales],
+                FILTER ( ALLSELECTED ( 'Product'[Brand] ), [Total Sales] >= CurrentSales )
+            )
+        RETURN
+            _Result
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    'Product'[Brand],
+    TREATAS ( { "CY 2008" }, 'Date'[Calendar Year] ),
+    "Total Sales", [Total Sales],
+    "Cumulative Sales", [Cumulative Sales]
+)
+ORDER BY [Cumulative Sales] ASC

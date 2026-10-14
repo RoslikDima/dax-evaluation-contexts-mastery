@@ -1,0 +1,31 @@
+/*
+Бизнес-кейс #21: Несвязанная таблица параметров (Disconnected Parameter Table)Переходим к классическому приему моделирования в Power BI, когда в модели создается таблица, не имеющая связей с основной схемой («звездой»).Запрос бизнеса (CFO / Финансовый аналитик):«Мы хотим проводить стресс-тестирование маржинальности («What-If» анализ).В отчете должен быть параметр скидки (Discount Rate): 0%, 5%, 10%, 15%, 20%.Смоделируй этот сценарий в DAX-запросе:Создай виртуальную несвязанную таблицу параметров со скидками: { 0.00, 0.05, 0.10, 0.15, 0.20 }.Напиши меру [Discounted Sales], которая:Считывает выбранный пользователем процент скидки из этой таблицы (если в срезе ничего не выбрано, дефолтная скидка = 0%).Рассчитывает скорректированную выручку по формуле: $\text{Total Sales} \times (1 - \text{Discount Rate})$.Построй отчет по брендам ('Product'[Brand]) за 2008 год ("CY 2008"), протестировав сценарий со скидкой 10% (0.10).Столбцы отчета:Бренд ('Product'[Brand]).Исходная выручка ([Total Sales]).Скорректированная выручка ([Discounted Sales]).*Модель и доступные поля (dax.do Contoso):Факт: 'Sales' (Sales[Net Price], Sales[Quantity])Измерение: 'Product'[Brand]Календарь: 'Date'[Calendar Year] = "CY 2008"
+*/
+DEFINE
+    MEASURE 'Sales'[Total Sales] =
+        SUMX ( 'Sales', 'Sales'[Quantity] * 'Sales'[Net Price] )
+    TABLE DiscountTable =
+        DATATABLE (
+            "Discount", DOUBLE,
+            {
+                { 0.00 },
+                { 0.05 },
+                { 0.10 },
+                { 0.15 },
+                { 0.20 }
+            }
+        )
+    MEASURE 'Sales'[Discounted Sales] =
+    VAR SelectedDiscount = 0.10
+    VAR DiscountedSales = [Total Sales] * ( 1 - SelectedDiscount )
+    RETURN
+        DiscountedSales
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    'Product'[Brand],
+    TREATAS ( { "CY 2008" }, 'Date'[Calendar Year] ),
+    TREATAS ( { 0.10 }, 'DiscountTable'[Discount] ),
+    "Total Sales", [Total Sales],
+    "Discounted Sales", [Discounted Sales]
+)

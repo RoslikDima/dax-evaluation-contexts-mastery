@@ -1,0 +1,46 @@
+/*
+Бизнес-кейс #16: Retention Rate & Потерянные клиенты (Lost Customers)
+Логическое продолжение предыдущей задачи. Теперь отдел маркетинга хочет отслеживать отток клиентской базы.
+
+Запрос бизнеса (CRM / Retention Lead):
+
+«Мы научились считать новых клиентов, теперь нам нужно контролировать отток за 2008 год ("CY 2008").
+Клиент считается "Ушедшим / Потерянным" (Lost Customer) в выбранном месяце, если:
+
+Он покупал что-либо в течение предыдущих 6 месяцев (до первого числа текущего месяца).
+
+И ни разу не совершил покупку в текущем месяце.
+
+Построй отчет по месяцам 2008 года ('Date'[Calendar Year Month]):
+
+Выведи меру [Lost Customers] — количество клиентов, которые были активны в окне последних 6 месяцев, но не сделали ни одного заказа в этом месяце.
+*/
+DEFINE
+    MEASURE 'Sales'[Total Sales] =
+        SUMX ( 'Sales', Sales[Quantity] * Sales[Net Price] )
+    MEASURE 'Sales'[Lost Customers] =
+        VAR CurrentMonthStart =
+            MIN ( 'Date'[Date] )
+        VAR WindowStart =
+            EDATE ( CurrentMonthStart, -6 )
+        VAR RecentCustomers =
+            CALCULATETABLE (
+                VALUES ( Customer[Customer Code] ),
+                'Sales',
+                FILTER (
+                    ALL ( 'Date' ),
+                    'Date'[Date] >= WindowStart && 'Date'[Date] < CurrentMonthStart
+                )
+            )
+        VAR CurrentMonthCustomers =
+            CALCULATETABLE ( VALUES ( 'Customer'[Customer Code] ), 'Sales' )
+        RETURN
+            COUNTROWS ( EXCEPT ( RecentCustomers, CurrentMonthCustomers ) )
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    'Date'[Calendar Year Month],
+    TREATAS ( { "CY 2008" }, 'Date'[Calendar Year] ),
+    "Total Sales", [Total Sales],
+    "Lost Customers", [Lost Customers]
+)

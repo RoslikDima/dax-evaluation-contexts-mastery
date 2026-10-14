@@ -1,0 +1,50 @@
+/*
+Бизнес-кейс #22: Динамический переключатель метрик (Metric Selector Pattern)
+Один из самых востребованных UX/UI-паттернов в Power BI: предоставление пользователю возможности одной кнопкой переключать, 
+какую именно метрику показывает график или матрица (например: Выручка, Количество или Чистая маржа).
+Запрос бизнеса (Product Owner BI-платформы):«На главной странице дашборда не хватает места под 3 отдельных графика.
+Мы хотим сделать универсальный чарт по брендам ('Product'[Brand]) за 2008 год ("CY 2008"), где показатель меняется в зависимости от
+выбора переключателя.
+Смоделируй решение на DAX:Создай несвязанную таблицу селектора метрик со значениями:
+"Sales" (Выручка)"Quantity" (Количество проданных штук)"Margin" (Маржа в деньгах: Net Price минус Unit Cost, умноженное на Quantity)
+Напиши универсальную меру [Selected Metric Value], которая:Проверяет выбранную пользователем строку через SELECTEDVALUE.
+Если выбрано "Sales" $\rightarrow$ возвращает [Total Sales].
+Если выбрано "Quantity" $\rightarrow$ возвращает SUM ( Sales[Quantity] ).
+Если выбрано "Margin" $\rightarrow$ возвращает [Total Margin].
+Если ничего не выбрано (или выбрано несколько) $\rightarrow$ по умолчанию возвращает выручку [Total Sales].
+Протестируй меру в SUMMARIZECOLUMNS, сымитировав выбор пользователем показателя "Margin".
+Столбцы отчета:Бренд ('Product'[Brand]).Значение выбранной метрики ([Selected Metric Value]).*
+*/
+DEFINE
+    MEASURE 'Sales'[Total Sales] =
+        SUMX ( 'Sales', 'Sales'[Quantity] * 'Sales'[Net Price] )
+    MEASURE 'Sales'[Total Margin] =
+        SUMX (
+            'Sales',
+            ( 'Sales'[Net Price] - 'Sales'[Unit Cost] ) * 'Sales'[Quantity]
+        )
+    TABLE MetricTable =
+        DATATABLE ( "Metric", STRING, { { "Sales" }, { "Quantity" }, { "Margin" } } )
+    MEASURE 'Sales'[*Quantity] =
+        SUMX ( 'Sales', 'Sales'[Quantity] )
+    MEASURE 'Sales'[Selected Metric Value] =
+        VAR SelectedDiscount =
+            SELECTEDVALUE ( MetricTable[Metric], "Sales" )
+        VAR Result =
+            SWITCH (
+                SelectedDiscount,
+                "Quantity", [*Quantity],
+                "Margin", [Total Margin],
+                [Total Sales]
+            )
+        RETURN
+            Result
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    'Product'[Brand],
+    TREATAS ( { "CY 2008" }, 'Date'[Calendar Year] ),
+    TREATAS ( { "Margin" }, MetricTable[Metric] ),
+    "Selected Metric Value", [Selected Metric Value]
+)
+

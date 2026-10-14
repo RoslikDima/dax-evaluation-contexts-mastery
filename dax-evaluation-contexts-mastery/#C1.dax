@@ -1,0 +1,47 @@
+/*
+========================================================================================
+Repository: RoslikDima/dax-evaluation-contexts-mastery
+Module: Evaluation Contexts & Context Transition
+Task #C1: Context Transition inside Table Iterators (AVERAGEX)
+Author: Dmitry Roslik
+Platform: dax.do / Power BI (Contoso Model)
+
+BUSINESS REQUIREMENT:
+Сформировать отчет по категориям товаров за 2008 календарный год ("CY 2008").
+Для каждой категории вывести:
+1. [Total Sales]: Общую выручку по категории.
+2. [Avg Brand Sales in Category]: Среднюю выручку на один бренд внутри категории.
+
+MECHANICS & CONTEXT TRANSITION:
+- Внутри итератора AVERAGEX по таблице VALUES('Product'[Brand]) вызов меры [Total Sales] 
+  неявно оборачивается в CALCULATE([Total Sales]).
+- CALCULATE инициирует Context Transition: текущий Row Context (конкретный бренд на шаге цикла)
+  преобразуется в Filter Context, сужая продажи таблицы 'Sales' строго до этого бренда.
+- Если бы вместо меры использовалась «голая» агрегация SUMX('Sales', ...), контекст строки
+  не перешел бы в контекст фильтра, и на каждой итерации вычислялись бы продажи всей категории.
+
+TECHNICAL DETAILS:
+- Fact Table: 'Sales'
+- Dimension Columns: 'Product'[Category], 'Product'[Brand], 'Date'[Calendar Year]
+- Filter: 'Date'[Calendar Year] = "CY 2008"
+========================================================================================
+*/
+
+DEFINE
+    MEASURE 'Sales'[Total Sales] =
+        SUMX ( 'Sales', Sales[Quantity] * Sales[Net Price] )
+
+    MEASURE 'Sales'[Avg Brand Sales in Category] =
+        AVERAGEX (
+            VALUES ( 'Product'[Brand] ),
+            [Total Sales]
+        )
+
+EVALUATE
+SUMMARIZECOLUMNS (
+    'Product'[Category],
+    TREATAS ( { "CY 2008" }, 'Date'[Calendar Year] ),
+    "Total Sales", [Total Sales],
+    "Avg Brand Sales in Category", [Avg Brand Sales in Category]
+)
+ORDER BY 'Product'[Category]
